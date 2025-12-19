@@ -178,15 +178,14 @@ fn get_dialect(dialect_name: &str) -> Result<Arc<dyn Dialect + Send + Sync>, Str
         .cloned()
         .ok_or_else(|| {
             format!(
-                "Unsupported dialect: {}. Supported dialects: generic, mysql, postgresql, sqlite, hive, snowflake, mssql, ansi",
-                dialect_name
+                "Unsupported dialect: {dialect_name}. Supported dialects: generic, mysql, postgresql, sqlite, hive, snowflake, mssql, ansi"
             )
         })
 }
 
 // SQL 规范化，提高缓存命中率
 fn normalize_sql(sql: &str) -> String {
-    sql.trim().split_whitespace().collect::<Vec<_>>().join(" ")
+    sql.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 async fn parse_sql_impl(sql: &str, dialect_name: &str) -> CacheValue {
@@ -198,9 +197,9 @@ async fn parse_sql_impl(sql: &str, dialect_name: &str) -> CacheValue {
     match Parser::parse_sql(&*dialect, sql) {
         Ok(ast) => match serde_json::to_value(&ast) {
             Ok(json_ast) => Ok(json_ast),
-            Err(e) => Err(format!("Failed to serialize AST: {}", e)),
+            Err(e) => Err(format!("Failed to serialize AST: {e}")),
         },
-        Err(e) => Err(format!("Failed to parse SQL: {}", e)),
+        Err(e) => Err(format!("Failed to parse SQL: {e}")),
     }
 }
 
@@ -316,9 +315,9 @@ async fn main() {
     ));
 
     println!("🚀 SQL to AST API Server v{}", env!("CARGO_PKG_VERSION"));
-    println!("📡 Server running on http://{}", addr);
-    println!("📚 OpenAPI docs: http://{}/swagger-ui", addr);
-    println!("❤️  Health check: http://{}/health", addr);
+    println!("📡 Server running on http://{addr}");
+    println!("📚 OpenAPI docs: http://{addr}/swagger-ui");
+    println!("❤️  Health check: http://{addr}/health");
     println!();
     println!("⚙️  Configuration:");
     println!("   - Cache capacity: {}", args.cache_max_capacity);
