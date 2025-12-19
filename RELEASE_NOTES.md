@@ -1,6 +1,12 @@
-# SQL to AST API v0.1.0
+# SQL to AST API v0.1.1
 
 A high-performance Rust HTTP API for parsing SQL statements to Abstract Syntax Tree (AST).
+
+## What's New in v0.1.1
+
+- Fixed CI builds for all 9 platforms
+- Properly handle Windows ARM64 cross-compilation (skip tests on x86_64 host)
+- Improved build reliability across all platforms
 
 ## Features
 
@@ -45,7 +51,7 @@ A high-performance Rust HTTP API for parsing SQL statements to Abstract Syntax T
 - `sql-ast-api-macos-aarch64.tar.gz` - Apple Silicon (M1/M2/M3)
 
 **Docker:**
-- `sql-ast-api-docker-0.1.0.tar.gz` - Docker image
+- `sql-ast-api-docker-0.1.1.tar.gz` - Docker image
 
 See [PLATFORMS.md](https://github.com/lihongjie0209/sql-ast-api/blob/master/PLATFORMS.md) for platform selection guide.
 
