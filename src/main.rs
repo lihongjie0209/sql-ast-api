@@ -28,16 +28,46 @@ type CacheValue = Result<serde_json::Value, String>;
 // 全局 Dialect 缓存，避免重复创建
 static DIALECTS: Lazy<HashMap<&'static str, Arc<dyn Dialect + Send + Sync>>> = Lazy::new(|| {
     let mut m = HashMap::new();
-    m.insert("generic", Arc::new(GenericDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("mysql", Arc::new(MySqlDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("postgresql", Arc::new(PostgreSqlDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("postgres", Arc::new(PostgreSqlDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("sqlite", Arc::new(SQLiteDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("hive", Arc::new(HiveDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("snowflake", Arc::new(SnowflakeDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("mssql", Arc::new(MsSqlDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("sqlserver", Arc::new(MsSqlDialect {}) as Arc<dyn Dialect + Send + Sync>);
-    m.insert("ansi", Arc::new(AnsiDialect {}) as Arc<dyn Dialect + Send + Sync>);
+    m.insert(
+        "generic",
+        Arc::new(GenericDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "mysql",
+        Arc::new(MySqlDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "postgresql",
+        Arc::new(PostgreSqlDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "postgres",
+        Arc::new(PostgreSqlDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "sqlite",
+        Arc::new(SQLiteDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "hive",
+        Arc::new(HiveDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "snowflake",
+        Arc::new(SnowflakeDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "mssql",
+        Arc::new(MsSqlDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "sqlserver",
+        Arc::new(MsSqlDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
+    m.insert(
+        "ansi",
+        Arc::new(AnsiDialect {}) as Arc<dyn Dialect + Send + Sync>,
+    );
     m
 });
 
@@ -82,11 +112,11 @@ struct ApiDoc;
 struct SqlRequest {
     #[schema(example = "SELECT * FROM users WHERE id = 1")]
     sql: String,
-    
+
     #[serde(default = "default_dialect")]
     #[schema(example = "mysql", default = "generic")]
     dialect: String,
-    
+
     #[serde(default)]
     #[schema(example = false, default = false)]
     no_cache: bool,
@@ -100,11 +130,11 @@ fn default_dialect() -> String {
 struct SqlResponse {
     #[schema(value_type = Object)]
     ast: serde_json::Value,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(example = false)]
     cached: Option<bool>,
-    
+
     #[schema(example = 1.234)]
     elapsed_ms: f64,
 }
@@ -113,7 +143,7 @@ struct SqlResponse {
 struct ErrorResponse {
     #[schema(example = "Failed to parse SQL: sql parser error: ...")]
     error: String,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(example = 0.123)]
     elapsed_ms: Option<f64>,
@@ -123,7 +153,7 @@ struct ErrorResponse {
 struct HealthResponse {
     #[schema(example = "ok")]
     status: String,
-    
+
     #[schema(example = "0.1.0")]
     version: String,
 }
@@ -156,10 +186,7 @@ fn get_dialect(dialect_name: &str) -> Result<Arc<dyn Dialect + Send + Sync>, Str
 
 // SQL 规范化，提高缓存命中率
 fn normalize_sql(sql: &str) -> String {
-    sql.trim()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    sql.trim().split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 async fn parse_sql_impl(sql: &str, dialect_name: &str) -> CacheValue {
@@ -189,14 +216,14 @@ async fn parse_sql_impl(sql: &str, dialect_name: &str) -> CacheValue {
 )]
 async fn parse_sql(State(state): State<AppState>, Json(payload): Json<SqlRequest>) -> ApiResponse {
     let start = Instant::now();
-    
+
     // SQL 规范化，提高缓存命中率
     let normalized_sql = if payload.no_cache {
         payload.sql.clone()
     } else {
         normalize_sql(&payload.sql)
     };
-    
+
     let cache_key = (normalized_sql.clone(), payload.dialect.clone());
 
     // 如果未禁用缓存，先尝试从缓存获取
