@@ -13,17 +13,43 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
+          # Linux x86_64
           - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
             artifact_name: sql-ast-api
             asset_name: sql-ast-api-linux-x86_64
+          # Linux ARM64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_name: sql-ast-api
+            asset_name: sql-ast-api-linux-aarch64
+            cross: true
+          # Linux x86_64 (musl for static linking)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact_name: sql-ast-api
+            asset_name: sql-ast-api-linux-x86_64-musl
+          # Windows x86_64
           - os: windows-latest
+            target: x86_64-pc-windows-msvc
             artifact_name: sql-ast-api.exe
             asset_name: sql-ast-api-windows-x86_64.exe
+          # Windows ARM64
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact_name: sql-ast-api.exe
+            asset_name: sql-ast-api-windows-aarch64.exe
+          # macOS x86_64 (Intel)
           - os: macos-latest
+            target: x86_64-apple-darwin
             artifact_name: sql-ast-api
             asset_name: sql-ast-api-macos-x86_64
+          # macOS ARM64 (Apple Silicon)
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: sql-ast-api
+            asset_name: sql-ast-api-macos-aarch64
     
     runs-on: ${{ matrix.os }}
     
@@ -32,40 +58,58 @@ jobs:
     
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+    
+    - name: Install musl tools
+      if: matrix.target == 'x86_64-unknown-linux-musl'
+      run: sudo apt-get update && sudo apt-get install -y musl-tools
+    
+    - name: Install cross
+      if: matrix.cross == true
+      run: cargo install cross --git https://github.com/cross-rs/cross
     
     - name: Cache cargo registry
       uses: actions/cache@v4
       with:
         path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Cache cargo index
       uses: actions/cache@v4
       with:
         path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-${{ matrix.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Cache cargo build
       uses: actions/cache@v4
       with:
         path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Check format
+      if: matrix.target == 'x86_64-unknown-linux-gnu'
       run: cargo fmt -- --check
     
     - name: Run clippy
+      if: matrix.target == 'x86_64-unknown-linux-gnu'
       run: cargo clippy -- -D warnings
     
-    - name: Build
-      run: cargo build --release --verbose
+    - name: Build (cross)
+      if: matrix.cross == true
+      run: cross build --release --target ${{ matrix.target }} --verbose
     
-    - name: Run tests
-      run: cargo test --verbose
+    - name: Build (native)
+      if: matrix.cross != true
+      run: cargo build --release --target ${{ matrix.target }} --verbose
+    
+    - name: Run tests (native only)
+      if: matrix.cross != true
+      run: cargo test --target ${{ matrix.target }} --verbose
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.asset_name }}
-        path: target/release/${{ matrix.artifact_name }}
+        path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
         if-no-files-found: error
