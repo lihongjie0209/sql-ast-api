@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  sql-ast-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sql-ast-api
+    ports:
+      - "3000:3000"
+    environment:
+      - RUST_LOG=info
+    restart: unless-stopped
+    command: 
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "3000"
+      - --cache-max-capacity
+      - "10000"
+      - --cache-ttl
+      - "3600"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
