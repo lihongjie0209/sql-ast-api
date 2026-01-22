@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package sql_parser;
+
+// SQL Parser Service
+service SqlParserService {
+  // Parse SQL to AST
+  rpc ParseSql(ParseSqlRequest) returns (ParseSqlResponse);
+  
+  // Generate SQL fingerprint
+  rpc GenerateFingerprint(FingerprintRequest) returns (FingerprintResponse);
+  
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Parse SQL Request
+message ParseSqlRequest {
+  string sql = 1;
+  string dialect = 2;
+  bool no_cache = 3;
+}
+
+// Parse SQL Response
+message ParseSqlResponse {
+  oneof result {
+    ParseSqlSuccess success = 1;
+    ParseSqlError error = 2;
+  }
+}
+
+message ParseSqlSuccess {
+  string ast_json = 1;
+  bool cached = 2;
+  double elapsed_ms = 3;
+}
+
+message ParseSqlError {
+  string error_message = 1;
+  double elapsed_ms = 2;
+}
+
+// Fingerprint Request
+message FingerprintRequest {
+  string sql = 1;
+  string dialect = 2;
+  uint32 max_in_values = 3;
+}
+
+// Fingerprint Response
+message FingerprintResponse {
+  oneof result {
+    FingerprintSuccess success = 1;
+    FingerprintError error = 2;
+  }
+}
+
+message FingerprintSuccess {
+  string fingerprint = 1;
+  double elapsed_ms = 2;
+}
+
+message FingerprintError {
+  string error_message = 1;
+  double elapsed_ms = 2;
+}
+
+// Health Check Request
+message HealthCheckRequest {}
+
+// Health Check Response
+message HealthCheckResponse {
+  string status = 1;
+  string version = 2;
+}

@@ -309,8 +309,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>🚀 SQL to AST Parser</h1>
-        <div class="subtitle">Parse SQL statements to Abstract Syntax Tree with multiple dialect support</div>
+        <h1>🚀 SQL Parser & Fingerprint</h1>
+        <div class="subtitle">Parse SQL to AST and generate SQL fingerprints with multiple dialect support</div>
     </div>
 
     <div class="container">
@@ -334,6 +334,8 @@
                         <span>Disable Cache</span>
                     </label>
                     <button id="parse-btn">Parse SQL</button>
+                    <button id="fingerprint-btn" style="background: linear-gradient(135deg, #43a047 0%, #66bb6a 100%);">Generate Fingerprint</button>
+                    <input type="number" id="max-in-values" placeholder="Max IN values (0=unlimited)" min="0" style="width: 200px; padding: 0.5rem;" value="0">
                     <button id="clear-btn" style="background: #e0e0e0; color: #333;">Clear</button>
                 </div>
                 <div class="examples">
@@ -359,7 +361,7 @@ LIMIT 10"></textarea>
         <!-- Right Panel: Output -->
         <div class="panel">
             <div class="panel-header">
-                <h2>🌳 AST Output</h2>
+                <h2 id="output-title">🌳 AST Output</h2>
                 <div class="stats" id="stats" style="display: none;">
                     <div class="stat-item">
                         <span class="stat-label">⏱️ Time:</span>
@@ -383,8 +385,11 @@ LIMIT 10"></textarea>
         const dialectSelect = document.getElementById('dialect');
         const noCacheCheckbox = document.getElementById('no-cache');
         const parseBtn = document.getElementById('parse-btn');
+        const fingerprintBtn = document.getElementById('fingerprint-btn');
+        const maxInValuesInput = document.getElementById('max-in-values');
         const clearBtn = document.getElementById('clear-btn');
         const astOutput = document.getElementById('ast-output');
+        const outputTitle = document.getElementById('output-title');
         const messageArea = document.getElementById('message-area');
         const statsDiv = document.getElementById('stats');
         const elapsedTime = document.getElementById('elapsed-time');
@@ -416,10 +421,13 @@ VALUES ('John Doe', 'john@example.com', NOW())`
         });
 
         parseBtn.addEventListener('click', parseSQL);
+        fingerprintBtn.addEventListener('click', generateFingerprint);
         
         sqlInput.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'Enter') {
                 parseSQL();
+            } else if (e.ctrlKey && e.shiftKey && e.key === 'Enter') {
+                generateFingerprint();
             }
         });
 
@@ -432,6 +440,7 @@ VALUES ('John Doe', 'john@example.com', NOW())`
 
             parseBtn.disabled = true;
             parseBtn.innerHTML = '<span class="loading"></span> Parsing...';
+            outputTitle.textContent = '🌳 AST Output';
             messageArea.innerHTML = '';
             astOutput.innerHTML = '';
             statsDiv.style.display = 'none';
@@ -493,6 +502,59 @@ VALUES ('John Doe', 'john@example.com', NOW())`
         function displayAST(ast) {
             astOutput.innerHTML = syntaxHighlight(ast, 0);
             addCollapsibleHandlers();
+        }
+
+        async function generateFingerprint() {
+            const sql = sqlInput.value.trim();
+            if (!sql) {
+                showMessage('Please enter a SQL query', 'error');
+                return;
+            }
+
+            const maxInValues = parseInt(maxInValuesInput.value) || 0;
+
+            fingerprintBtn.disabled = true;
+            fingerprintBtn.innerHTML = '<span class="loading"></span> Generating...';
+            outputTitle.textContent = '🔍 SQL Fingerprint';
+            messageArea.innerHTML = '';
+            astOutput.innerHTML = '';
+            statsDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/fingerprint', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        sql: sql,
+                        dialect: dialectSelect.value,
+                        max_in_values: maxInValues
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('✅ SQL fingerprint generated successfully!', 'success');
+                    displayFingerprint(data.fingerprint);
+                    updateStats(data.elapsed_ms, null);
+                } else {
+                    showMessage(`❌ ${data.error}`, 'error');
+                    if (data.elapsed_ms) {
+                        updateStats(data.elapsed_ms, null);
+                    }
+                }
+            } catch (error) {
+                showMessage(`❌ Network error: ${error.message}`, 'error');
+            } finally {
+                fingerprintBtn.disabled = false;
+                fingerprintBtn.innerHTML = 'Generate Fingerprint';
+            }
+        }
+
+        function displayFingerprint(fingerprint) {
+            astOutput.innerHTML = `<pre style="font-size: 1rem; line-height: 1.8; padding: 1rem; background: #f5f5f5; border-radius: 4px; border-left: 4px solid #43a047;"><code>${escapeHtml(fingerprint)}</code></pre>`;
         }
 
         function syntaxHighlight(obj, depth) {
