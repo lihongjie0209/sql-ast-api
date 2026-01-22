@@ -240,47 +240,10 @@ curl -X POST http://127.0.0.1:3000/parse \
 # 生成 SQL 指纹
 curl -X POST http://127.0.0.1:3000/fingerprint \
   -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT * FROM users WHERE id = 123 AND age IN (25,30,35,40)", "dialect": "mysql", "max_in_values": 2
+  -d '{"sql": "SELECT * FROM users WHERE id = 123 AND age IN (25,30,35,40)", "dialect": "mysql", "max_in_values": 2}'
+```
 
-**错误响应 (400)：**
-
-```json
-{
-  "error": "Failed to parse SQL: ...",
-  "elapsed_ms": 0.12
-}# 使用 PowerShell
-
-```powershell
-# 解析 SQL
-$body = @{
-    sql = "SELECT * FROM users WHERE id = 1"
-    dialect = "mysql"
-} | ConvertTo-Json
-
-$result = Invoke-RestMethod -Uri http://127.0.0.1:3000/parse `
-    -Method Post `
-    -ContentType "application/json" `
-    -Body $body
-
-Write-Host "Cached: $($result.cached), Time: $($result.elapsed_ms)ms"
-
-# 生成 SQL 指纹
-$fingerprintBody = @{
-    sql = "SELECT * FROM users WHERE id = 123 AND age IN (25,30,35)"
-    dialect = "mysql"
-    max_in_values = 2
-} | ConvertTo-Json
-
-$fingerprint = Invoke-RestMethod -Uri http://127.0.0.1:3000/fingerprint `
-    -Method Post `
-    -ContentType "application/json" `
-    -Body $fingerprintBody
-
-Write-Host "Fingerprint: $($fingerprint.fingerprint)
-**响应 (200)：**
-
-```json
-{# 使用 Python
+#### 使用 Python
 
 ```python
 import requests
@@ -323,87 +286,37 @@ response = requests.post(
 
 # 健康检查
 health = requests.get("http://127.0.0.1:3000/health").json()
-prin双协议支持**: HTTP 和 gRPC 同时运行，互不干扰
-- **性能指标**: 
-  - 缓存命中: ~0.05-0.2ms
-  - 缓存未命中: ~0.5-2ms（取决于 SQL 复杂度）
-  - 指纹生成: ~0.05-0.2ms
-  - 每秒可处理数千个请求
-- **内存效率**: 可配置的缓存容量和 TTL
-- **零拷贝**: gRPC 使用 Protocol Buffers 提供高效序列化
-使用 `grpcurl` 测试 gRPC 服务：
-
-```bash
-# 安装 grpcurl
-# Windows: scoop install grpcurl
-# macOS: brew install grpcurl
-
-# 列出服务
-grpcurl -plaintext 127.0.0.1:50051 list
-
-# Health Check
-grpcurl -plaintext -d '{}' 127.0.0.1:50051 sql_parser.SqlParserService/HealthCheck
-
-# Parse SQL
-grpcurl -plaintext -d '{
-  "sql": "SELECT * FROM users WHERE id = 123",
-  "dialect": "mysql",
-  "no_cache": false
-}' 127.0.0.1:50051 sql_parser.SqlParserService/ParseSql
-
-# Generate Fingerprint
-### 单元测试
-
-项目包含 12 个单元测试，覆盖 SQL 指纹功能：
-
-```bash
-cargo test
+print(f"Status: {health['status']}, Version: {health['version']}")
 ```
 
-测试覆盖：
-- ✅ 基本 SELECT 语句
-- ✅ IN 子句限制
-- ✅ UPDATE/DELETE/INSERT 语句
-- ✅ 复杂 JOIN 查询
-- ✅ BETWEEN 子句
-- ✅ NULL 值保留
-- ✅ CASE 表达式
-- ✅ SQL 规范化
+## gRPC API
 
-### API 测试
+### gRPC 方法
 
-#### HTTP API
-使用测试脚本测试所有 HTTP 功能（需要先启动服务）：
+#### 1. ParseSql
 
-```powershell
-# 启动服务器（在一个终端）
-cargo run
+解析 SQL 为 AST。
 
-# 运行测试（在另一个终端）
-.\test_fingerprint_all.ps1
+**请求:**
+```protobuf
+message ParseSqlRequest {
+  string sql = 1;
+  string dialect = 2;
+  bool no_cache = 3;
+}
 ```
 
-#### gRPC API
-使用 gRPC 测试脚本：
-
-```powershell
-# 需要先安装 grpcurl
-.\test_grpc.ps1
+**响应:**
+```protobuf
+message ParseSqlResponse {
+  oneof result {
+    ParseSuccess success = 1;
+    ParseError error = 2;
+  }
+}
 ```
 
-或使用 Python 客户端：
-
-```bash
-# 安装依赖
-pip install grpcio grpcio-tools
-
-# 生成 Python 客户端代码
-python -m grpc_tools.protoc -I./proto --python_out=. --grpc_python_out=. proto/sql_parser.proto
-
-# 运行测试
-python test_grpc_client.py
-- `test_grpc.ps1` - PowerShell 测试脚本
-- `test_grpc_client.py` - Python 客户端示例 2. GenerateFingerprint
+#### 2. GenerateFingerprint
 
 生成 SQL 指纹。
 
@@ -426,7 +339,7 @@ message FingerprintResponse {
 }
 ```
 
-### 3. HealthCheck
+#### 3. HealthCheck
 
 健康检查。
 
@@ -445,20 +358,77 @@ message HealthCheckResponse {
 
 ### gRPC 客户端示例
 
-查看以下文件获取客户端示例：
-- PowerShell: `test_grpc.ps1`
-- Python: `test_grpc_client.py# 2. 健康检查 (GET /health)
+#### 使用 grpcurl
 
-检查服务健康状态。
+```bash
+# 安装 grpcurl
+# Windows: scoop install grpcurl
+# macOS: brew install grpcurl
 
-**响应 (200)：**
+# 列出服务
+grpcurl -plaintext 127.0.0.1:50051 list
 
-```json
-{
-  "status": "ok",
-  "version": "0.1.0"
-}
+# Health Check
+grpcurl -plaintext -d '{}' 127.0.0.1:50051 sql_parser.SqlParserService/HealthCheck
+
+# Parse SQL
+grpcurl -plaintext -d '{
+  "sql": "SELECT * FROM users WHERE id = 123",
+  "dialect": "mysql",
+  "no_cache": false
+}' 127.0.0.1:50051 sql_parser.SqlParserService/ParseSql
+
+# Generate Fingerprint
+grpcurl -plaintext -d '{
+  "sql": "SELECT * FROM users WHERE id = 123 AND age IN (25,30,35,40)",
+  "dialect": "mysql",
+  "max_in_values": 2
+}' 127.0.0.1:50051 sql_parser.SqlParserService/GenerateFingerprint
 ```
+
+#### 客户端代码示例
+
+查看以下文件获取完整的客户端示例：
+- PowerShell: `test_grpc.ps1`
+- Python: `test_grpc_client.py`
+
+## 测试
+
+### 单元测试
+
+项目包含 12 个单元测试，覆盖 SQL 指纹功能：
+
+```bash
+cargo test
+```
+
+测试覆盖：
+- ✅ 基本 SELECT 语句
+- ✅ IN 子句限制
+- ✅ UPDATE/DELETE/INSERT 语句
+- ✅ 复杂 JOIN 查询
+- ✅ BETWEEN 子句
+- ✅ NULL 值保留
+- ✅ CASE 表达式
+- ✅ SQL 规范化
+
+### API 测试
+
+- **HTTP API**: 使用 `test_fingerprint_all.ps1` 测试脚本
+- **gRPC API**: 使用 `test_grpc.ps1` 测试脚本或 `test_grpc_client.py` Python客户端
+
+## 性能特性
+
+- **异步处理**: 基于 Tokio 异步运行时，支持高并发
+- **高性能缓存**: Moka 提供线程安全的高性能并发访问
+- **双协议支持**: HTTP 和 gRPC 同时运行，互不干扰
+- **性能指标**: 
+  - 缓存命中: ~0.05-0.2ms
+  - 缓存未命中: ~0.5-2ms（取决于 SQL 复杂度）
+  - 指纹生成: ~0.05-0.2ms
+  - 每秒可处理数千个请求
+- **内存效率**: 可配置的缓存容量和 TTL
+- **零拷贝**: gRPC 使用 Protocol Buffers 提供高效序列化
 
 ## 缓存机制
 
@@ -469,25 +439,7 @@ message HealthCheckResponse {
 
 相同的 SQL 语句和方言组合会被缓存，提高重复查询的性能。从缓存返回的请求通常在 0.1-0.5ms 内完成，而新解析的请求可能需要 1-5ms。
 
-## 使用示例
-
-### 使用 curl
-
-```bash
-# 解析 SQL（使用默认方言）
-curl -X POST http://127.0.0.1:3000/parse \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT * FROM users WHERE id = 1"}'
-
-# 使用 MySQL 方言
-curl -X POST http://127.0.0.1:3000/parse \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT * FROM users WHERE id = 1", "dialect": "mysql"}'
-
-# 禁用缓存（每次重新解析）
-curl -X POST http://127.0.0.1:3000/parse \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT * FROM users WHERE id = 1", "dialect": "mysql", "no_cache": true}'
+## Docker 支持
 
 ### 使用 docker-compose（推荐）
 
@@ -511,30 +463,22 @@ docker run -d \
   sql-ast-api \
   --host 0.0.0.0 \
   --port 8080 \
-  --grpc-port 50052ost `
-    -ContentType "application/json" `
-    -Body $body
-
-# 健康检查
-Invoke-RestMethod -Uri http://127.0.0.1:3000/health
+  --grpc-port 50052
 ```
 
-### 使用 Python
+详细的 Docker 部署指南请查看 [DOCKER.md](DOCKER.md)
 
-```python
-import requests
+## 开发
 
-# 解析 SQL
-response = requests.post(
-    "http://127.0.0.1:3000/parse",
-    json={
-        "sql": "SELECT * FROM users WHERE id = 1",
-        "dialect": "postgresql"
-    }
-)
+### 运行开发服务器
 
-data = response.json()
-print(f"Cached: {data['cached']}, Time: {data['elapsed_ms']}ms")
+```bash
+cargo run
+```
+
+### 运行测试
+
+```bash
 # 运行单元测试
 cargo test
 
@@ -589,114 +533,7 @@ sql-ast-api/
 - [SQL 指纹功能详解](FINGERPRINT.md)
 - [Docker 部署指南](DOCKER.md)
 - [性能测试报告](PERFORMANCE.md)
-- [更新日志](CHANGELOG.md)lth = requests.get("http://127.0.0.1:3000/health").json()
-print(f"Status: {health['status']}, Version: {health['version']}")
-```
-
-## 性能特性
-
-- **异步处理**: 基于 Tokio 异步运行时，支持高并发
-- **高性能缓存**: Moka 提供线程安全的高性能并发访问
-- **性能指标**: 
-  - 缓存命中: ~0.1-0.5ms
-  - 缓存未命中: ~1-5ms（取决于 SQL 复杂度）
-  - 每秒可处理数千个请求
-- **内存效率**: 可配置的缓存容量和 TTL
-
-## 监控与日志
-
-### 性能监控
-
-每个响应都包含 `elapsed_ms` 字段，显示请求处理耗时：
-
-```json
-{
-  "ast": {...},
-  "cached": true,
-  "elapsed_ms": 0.23
-}
-```
-
-### 缓存监控
-
-通过 `cached` 字段监控缓存命中率：
-- `cached: false` - 新解析的 SQL，已存入缓存
-- `cached: true` - 从缓存返回，性能最优
-
-## 测试
-
-项目包含一个 PowerShell 测试脚本 `test_api.ps1`，可以测试所有功能：
-
-```powershell
-# 启动服务器（在一个终端）
-cargo run
-
-# 运行测试（在另一个终端）
-.\test_api.ps1
-```
-
-## Docker 支持
-
-创建 `Dockerfile`:
-
-```dockerfile
-FROM rust:1.75 as builder
-WORKDIR /app
-COPY . .
-RUN cargo build --release
-
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/sql-ast-api /usr/local/bin/
-EXPOSE 3000
-CMD ["sql-ast-api", "--host", "0.0.0.0"]
-```
-
-构建和运行：
-
-```bash
-# 使用 docker-compose（推荐）
-docker-compose up -d
-
-# 或使用 docker 命令
-docker build -t sql-ast-api .
-docker run -d -p 3000:3000 sql-ast-api
-
-# 使用自定义配置
-docker run -d -p 8080:8080 sql-ast-api \
-  --host 0.0.0.0 \
-  --port 8080 \
-  --cache-max-capacity 50000 \
-  --cache-ttl 7200
-```
-
-详细的 Docker 部署指南请查看 [DOCKER.md](DOCKER.md)
-
-## 开发
-
-### 运行开发服务器
-
-```bash
-cargo run
-```
-
-### 运行测试
-
-```bash
-cargo test
-```
-
-### 格式化代码
-
-```bash
-cargo fmt
-```
-
-### 检查代码
-
-```bash
-cargo clippy
-```
+- [更新日志](CHANGELOG.md)
 
 ## 许可证
 
